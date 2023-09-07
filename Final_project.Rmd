@@ -1,0 +1,96 @@
+---
+title: "Dicamba Differential Expression"
+author: "Hannielle Joseph"
+date: "12/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+  Dicamba is a benzoic acid herbicide that is used by farmers to control broadleaf weed. The damages  effect of dicamba in the weed plants include leaf epinasty, leaf abscission, and growth and root inhibition (Gleason et al, 2011). Genetically engineered plants to have dicamba gene is a good way to have the plants resistant to weed without causing toxic effect  to the environment and human. However, these plants that carry dicamba resistant gene can be lethal to nearby plants that don't carry dicamba gene.
+
+In this project, I will be using data from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE24052 to  re-analyze gene expression of dicamba treated plants from the publish study by answering the following questions:
+
+1) How many genes were up-regulated in the dicamba treated compare to the mock treated?
+
+2) How many genes were down-regulated in the dicamba treated compare to the mock treated?
+
+# Analysis
+  This code below read the sample.txt file that contains the sample data and uses a linear model to calculate the variance between dicamba treated and mock treated plants. 
+
+```{r message=FALSE, warning=FALSE}
+library("affy")
+library("limma")
+pd = read.AnnotatedDataFrame("samples.txt",header=TRUE,sep=",",row.names=1)
+mydata = ReadAffy(filenames=pd$filename,phenoData=pd,verbose=TRUE)
+sampleNames(mydata)=row.names(pData(pd))
+eset = rma(mydata)
+factor.vector=factor(c('m','m','m','d','d','d'))
+factor.vector=relevel(factor.vector,ref='m')
+exp_design=model.matrix(~0 + factor.vector) 
+colnames(exp_design)=levels(factor.vector)
+fit=lmFit(eset,exp_design)
+cont.matrix= makeContrasts(
+  dvsm = d-m, 
+  levels = exp_design)
+fit2 = contrasts.fit(fit,cont.matrix)
+fit2 = eBayes(fit2)
+N=dim(eset)[1]
+results=topTable(fit2,coef=1,number=N,p.value=1)
+gene_up=results[results$logFC>=1,]
+```
+
+# Results
+Assign cutoff adjusted p-valued
+
+```{r}
+cutoff_adj.pvalue=0.05
+
+```
+
+
+I will be using a cutoff adjusted p-value of `r cutoff_adj.pvalue`. 
+
+Analyzing number of genes that were up-regulated and down-regulated
+
+```{r}
+gene_up=results[results$logFC>=1,]
+gene_up_sig=sum(gene_up$adj.P.Value<=0.05)
+number_upgene=nrow(gene_up)
+gene_down=results[results$logFC<=(-1),] 
+gene_down_sig=sum(gene_down$adj.P.Val<=-0.05)
+number_downgene=nrow(gene_down)
+```
+
+The number of gene that were up-regulated was `r number_upgene` and the number of genes that were down-regulated was `r number_downgene`.
+
+The number of up-regulated genes from the paper were 1192 and the number of down-regulated gene were 1003
+
+visualize the results:
+```{r}
+barplot(gene_up$AveExpr,col="red", main= "Average Differential Expression of Up-regulating Genes", xlab = "Genes", ylab = "Average Expression")
+```
+
+
+**Figure 1**. This graph show a visualization of the average expression of the up-regulating genes with dicamba treatment.
+
+
+```{r}
+barplot(gene_up$AveExpr,col="green", main= "Average Differential Expression of Down-regulating Genes", xlab = "Genes", ylab = "Average Expression")
+```
+
+
+
+**Figure 2**. This graph show a visualization of the average expression of the down-regulating genes with dicamba treatment.
+
+
+
+# Discussion
+  The number of up-regulated and down-regulated genes allows us to understand how the genes respond to the dicamba treatment. The number of up-regulated gene in this experiment indicate the number of genes were able to produce more protein than usual due to the dicamba treatment with a fold change of 2 or greater. The plants were down-regulated have at least a 2 fold change decrease number of protein due to the dicamba treatment. The average expression of both up-regulated and and down-regulated genes can be visualized in  figure 1 and 2.
+
+
+# Conclusion
+  The amount of genes that were up-regulated are `r number_upgene` and down-regulated are `r number_downgene`. However, with the adjusted p-value, `r gene_up_sig` were up-regulated and `r gene_down_sig` were down-regulated. This show that none of the results were significant. My results were different from the results from the paper. I had `r 1192-(number_upgene)` difference for up-regulated genes and `r 1003-(number_downgene)` down-regulated genes a with 2-fold change. However, the researchers further analyze up-regulated and down-regulated genes based the function of the genes with fold change of 3 and 2.5. Therefore, i will need to annotate the genes before undermine or support their results. 
